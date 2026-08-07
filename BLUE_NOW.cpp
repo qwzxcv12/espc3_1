@@ -38,14 +38,14 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 {
     switch (event) {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-        ESP_LOGI(TAG, "Da thiet lap xong scan_params. Bat dau quet ngay lap tuc...");
-        esp_ble_gap_start_scanning(10);
+        ESP_LOGI(TAG, "Thiet lap scan_params thanh cong (Status: %d).", param->scan_param_cmpl.status);
         break;
 
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
         
-        if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_RESULT_EVT) {
+        switch (scan_result->scan_rst.search_evt) {
+        case ESP_GAP_BLE_SCAN_RESULT_EVT: {
             uint8_t *adv_name = NULL;
             uint8_t adv_name_len = 0;
             adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
@@ -60,24 +60,27 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 snprintf(name_str, sizeof(name_str), "%.*s", adv_name_len, (char *)adv_name);
             }
 
-            // In moi thiet bi BLE phat hien duoc
             ESP_LOGI(TAG, "[BLE DISCOVER] %-20s | MAC: " MAC_STR " | RSSI: %d", 
                      name_str[0] ? name_str : "(Khong ten)", 
                      MAC_VAL(scan_result->scan_rst.bda), 
                      scan_result->scan_rst.rssi);
 
-            if (!is_connected) {
-                // Neu phat hien ten Remote hoac TV/BRL/G10/Voice
-                if (adv_name_len > 0 && (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
-                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice"))) {
+            if (!is_connected && adv_name_len > 0) {
+                if (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
+                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice")) {
                     
                     ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE [%s]! DANG KET NOI...", name_str);
                     esp_ble_gap_stop_scanning();
                     esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
                 }
             }
-        } else if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
-            ESP_LOGI(TAG, "Hoan tat luot quet BLE.");
+            break;
+        }
+        case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+            ESP_LOGI(TAG, "Hoan tat 1 luot quet BLE.");
+            break;
+        default:
+            break;
         }
         break;
     }
@@ -143,11 +146,14 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
 
 static void scan_task(void *pvParameters)
 {
-    // Bat dau quet NGAY LAP TUC khi boot
+    vTaskDelay(pdMS_TO_TICKS(1500)); // Delay 1.5s cho khoi tao BLE hoan tat
     while (1) {
         if (!is_connected) {
             ESP_LOGI(TAG, ">>> KHOI DONG LUOT QUET TIM REMOTE BLE...");
-            esp_ble_gap_start_scanning(10);
+            esp_err_t err = esp_ble_gap_start_scanning(10);
+            if (err != ESP_OK) {
+                ESP_LOGE(TAG, "Loi start_scanning code: %d", err);
+            }
         }
         vTaskDelay(pdMS_TO_TICKS(12000));
     }
