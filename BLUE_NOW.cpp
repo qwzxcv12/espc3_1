@@ -149,6 +149,9 @@ static void scan_task(void *pvParameters)
 
 extern "C" void app_main(void)
 {
+    // Tat bffering de luon xuat log ngay lap tuc qua USB CDC
+    setvbuf(stdout, NULL, _IONBF, 0);
+
     ESP_LOGI(TAG, "=================================================");
     ESP_LOGI(TAG, "  ESP32-C3 BLE HID HOST - KET NOI REMOTE BLUETOOTH");
     ESP_LOGI(TAG, "=================================================");
