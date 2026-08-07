@@ -18,6 +18,34 @@ static const char *TAG = "ESP32C3_NIMBLE_REMOTE";
 #define LED_GPIO GPIO_NUM_8
 
 static bool is_connected = false;
+static uint16_t conn_handle = BLE_HS_CONN_HANDLE_NONE;
+
+static int on_disc_chrs(uint16_t conn_h, const struct ble_gatt_error *error, const struct ble_gatt_chr *chr, void *arg)
+{
+    if (error->status == 0 && chr != NULL) {
+        uint16_t uuid16 = ble_uuid_u16(&chr->uuid.u);
+        if (uuid16 == 0x2A4D || uuid16 == 0x2A22) { // 0x2A4D = HID Report, 0x2A22 = Boot Keyboard Input
+            ESP_LOGI(TAG, ">>> PHAT HIEN NÚT BẤM REMOTE (UUID: 0x%04X, Val Handle: %d)", uuid16, chr->val_handle);
+            
+            // Đăng ký nhận Notification/Indication từ nút bấm
+            uint8_t notify_buf[2] = {0x01, 0x00};
+            ble_gattc_write_flat(conn_h, chr->val_handle + 1, notify_buf, 2, NULL, NULL);
+        }
+    }
+    return 0;
+}
+
+static int on_disc_svc(uint16_t conn_h, const struct ble_gatt_error *error, const struct ble_gatt_svc *svc, void *arg)
+{
+    if (error->status == 0 && svc != NULL) {
+        uint16_t uuid16 = ble_uuid_u16(&svc->uuid.u);
+        if (uuid16 == 0x1812) { // 0x1812 = HID Service
+            ESP_LOGI(TAG, ">>> PHAT HIEN BLE HID SERVICE (0x1812). Dang kham pha nut bam...");
+            ble_gattc_disc_all_chrs(conn_h, svc->start_handle, svc->end_handle, on_disc_chrs, NULL);
+        }
+    }
+    return 0;
+}
 
 static int ble_gap_event(struct ble_gap_event *event, void *arg)
 {
@@ -51,7 +79,7 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         if (!is_connected) {
             bool is_target_remote = (name[0] && (strstr(name, "Remote") || strstr(name, "BRL") || 
                                                 strstr(name, "TV") || strstr(name, "G10") || strstr(name, "Voice")));
-            bool is_very_close = (event->disc.rssi > -70);
+            bool is_very_close = (event->disc.rssi > -75);
 
             if (is_hid_uuid || is_target_remote || is_very_close) {
                 ESP_LOGI(TAG, "-------------------------------------------------");
@@ -89,18 +117,22 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
             ESP_LOGI(TAG, "  ✅ KET NOI BLUETOOTH VOI REMOTE THANH CONG!");
             ESP_LOGI(TAG, "=================================================");
             is_connected = true;
-            
+            conn_handle = event->connect.conn_handle;
+
             // Nhap nhay LED xac nhan va bat sang LED 8
             for (int i = 0; i < 8; i++) {
                 gpio_set_level(LED_GPIO, i % 2);
                 vTaskDelay(pdMS_TO_TICKS(80));
             }
             gpio_set_level(LED_GPIO, 1);
+
+            // Kham pha GATT Services de dang ky nhan tin hieu nut bam Remote
+            ble_gattc_disc_all_svcs(conn_handle, on_disc_svc, NULL);
         } else {
             ESP_LOGE(TAG, "❌ KET NOI THAT BAI: %d. Tu dong quet lai...", event->connect.status);
             is_connected = false;
             gpio_set_level(LED_GPIO, 0);
-            
+
             struct ble_gap_disc_params disc_params;
             memset(&disc_params, 0, sizeof(disc_params));
             disc_params.filter_duplicates = 1;
@@ -109,11 +141,21 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         }
         return 0;
     }
+    case BLE_GAP_EVENT_NOTIFY_RX: {
+        ESP_LOGI(TAG, "\n🎯 [TIN HIEU PHIM BAM REMOTE] Nhan Notification! Do dai: %d bytes", event->notify_rx.om->om_len);
+        ESP_LOG_BUFFER_HEX(TAG, event->notify_rx.om->om_data, event->notify_rx.om->om_len);
+
+        // Dao trang thai LED GPIO 8 moi khi co phim bam
+        static bool led_state = true;
+        led_state = !led_state;
+        gpio_set_level(LED_GPIO, led_state ? 1 : 0);
+        return 0;
+    }
     case BLE_GAP_EVENT_DISCONNECT: {
         ESP_LOGW(TAG, "⚠️ NGAT KET NOI BLUETOOTH. DANG KHOI DONG LAI QUET...");
         is_connected = false;
         gpio_set_level(LED_GPIO, 0);
-        
+
         struct ble_gap_disc_params disc_params;
         memset(&disc_params, 0, sizeof(disc_params));
         disc_params.filter_duplicates = 1;
