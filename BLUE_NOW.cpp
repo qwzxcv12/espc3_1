@@ -15,7 +15,6 @@
 #include "esp_gatt_defs.h"
 #include "esp_gatt_common_api.h"
 #include "esp_hidh.h"
-#include "esp_hid_gap.h"
 #include "esp_hid_common.h"
 
 static const char *TAG = "ESP32C3_BLE_REMOTE";
@@ -26,6 +25,67 @@ static const char *TAG = "ESP32C3_BLE_REMOTE";
 
 static bool is_connected = false;
 
+static esp_ble_scan_params_t ble_scan_params = {
+    .scan_type              = BLE_SCAN_TYPE_ACTIVE,
+    .own_addr_type          = BLE_ADDR_TYPE_PUBLIC,
+    .scan_filter_policy     = BLE_SCAN_FILTER_ALLOW_ALL,
+    .scan_interval          = 0x50,
+    .scan_window            = 0x30,
+    .scan_duplicate         = BLE_SCAN_DUPLICATE_DISABLE
+};
+
+static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
+{
+    switch (event) {
+    case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
+        ESP_LOGI(TAG, "Da thiet lap thong so quet BLE. Bat dau quet...");
+        esp_ble_gap_start_scanning(5);
+        break;
+    case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+        esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
+        switch (scan_result->scan_rst.search_evt) {
+        case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+            uint8_t *adv_name = NULL;
+            uint8_t adv_name_len = 0;
+            adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
+                                                ESP_BLE_AD_TYPE_NAME_CMPL, &adv_name_len);
+            if (!adv_name) {
+                adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
+                                                    ESP_BLE_AD_TYPE_NAME_SHORT, &adv_name_len);
+            }
+
+            char name_str[32] = {0};
+            if (adv_name && adv_name_len > 0) {
+                snprintf(name_str, sizeof(name_str), "%.*s", adv_name_len, (char *)adv_name);
+                ESP_LOGI(TAG, "Tim thay BLE: %s [MAC: " MAC_STR " | RSSI: %d]", 
+                         name_str, MAC_VAL(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
+            }
+
+            if (!is_connected) {
+                // Ket noi neu ten thiet bi co chua chu Remote, TV, BRL, G10 hoac Voice
+                if (adv_name_len > 0 && (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
+                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice"))) {
+                    
+                    ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE! DANG KET NOI TOI [%s]...", name_str);
+                    esp_ble_gap_stop_scanning();
+                    esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
+                }
+            }
+            break;
+        }
+        case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+            ESP_LOGI(TAG, "Hoan tat luot quet BLE.");
+            break;
+        default:
+            break;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id, void *event_data)
 {
     esp_hidh_event_t event = (esp_hidh_event_t)id;
@@ -34,7 +94,7 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
     switch (event) {
     case ESP_HIDH_START_EVENT: {
         ESP_LOGI(TAG, "=================================================");
-        ESP_LOGI(TAG, "  HID Host Da Khoi Dong! Bat dau quet Remote BLE...");
+        ESP_LOGI(TAG, "  HID Host Da Khoi Dong! Dang quet Remote BLE...");
         ESP_LOGI(TAG, "  (Hay nhan giu OK + Back tren Remote de bat Pairing)");
         ESP_LOGI(TAG, "=================================================");
         break;
@@ -52,9 +112,9 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
                 gpio_set_level(LED_GPIO, i % 2);
                 vTaskDelay(pdMS_TO_TICKS(80));
             }
-            gpio_set_level(LED_GPIO, 1); // Bat sang LED khi ket noi
+            gpio_set_level(LED_GPIO, 1);
         } else {
-            ESP_LOGE(TAG, "Ket noi vao Remote BLE that bai, error status: %d", param->open.status);
+            ESP_LOGE(TAG, "Ket noi vao Remote BLE that bai, status: %d", param->open.status);
             is_connected = false;
         }
         break;
@@ -63,19 +123,12 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
         ESP_LOGI(TAG, "\n[TIN HIEU REMOTE] Nhan Report ID: %d, Do dai: %d bytes", 
                  param->input.map_index, param->input.length);
         
-        // In chi tiet cac byte du lieu tra ve tu Remote
         ESP_LOG_BUFFER_HEX(TAG, param->input.data, param->input.length);
 
         // Dao trang thai LED GPIO 8 moi khi co phim bam
         static bool led_state = false;
         led_state = !led_state;
         gpio_set_level(LED_GPIO, led_state ? 1 : 0);
-
-        if (param->input.length >= 2) {
-            uint8_t b0 = param->input.data[0];
-            uint8_t b1 = param->input.data[1];
-            ESP_LOGI(TAG, "-> Data Byte 0: 0x%02X, Byte 1: 0x%02X", b0, b1);
-        }
         break;
     }
     case ESP_HIDH_CLOSE_EVENT: {
@@ -93,37 +146,10 @@ static void scan_task(void *pvParameters)
 {
     while (1) {
         if (!is_connected) {
-            ESP_LOGI(TAG, "Dang quet tim Remote Bluetooth (BLE HID) xung quanh...");
-            size_t num_results = 0;
-            esp_hid_scan_result_t *results = NULL;
-            
-            // Quet trong 5 giay
-            esp_hid_scan(5, &num_results, &results);
-            
-            if (num_results > 0) {
-                ESP_LOGI(TAG, "Phat hien %d thiet bi BLE xung quanh:", num_results);
-                for (size_t i = 0; i < num_results; i++) {
-                    const char *dev_name = results[i].name ? results[i].name : "Unknown Device";
-                    ESP_LOGI(TAG, " [%d] MAC: " MAC_STR " | RSSI: %d | Name: %s | Usage: %d",
-                             (int)(i + 1), MAC_VAL(results[i].bda), results[i].rssi, dev_name, results[i].usage);
-                    
-                    // Neu thiet bi la HID Device (Keyboard, Gamepad, Generic hoặc chứa tên Remote/TV/BRL)
-                    if (results[i].usage == ESP_HID_USAGE_KEYBOARD || 
-                        results[i].usage == ESP_HID_USAGE_GAMEPAD || 
-                        results[i].usage == ESP_HID_USAGE_GENERIC ||
-                        (results[i].name && (strstr(results[i].name, "Remote") || strstr(results[i].name, "BRL") || strstr(results[i].name, "TV")))) {
-                        
-                        ESP_LOGI(TAG, ">>> THAY REMOTE PHU HOP! DANG KET NOI TOI [%s]...", dev_name);
-                        esp_hidh_dev_open(results[i].bda, results[i].transport, results[i].ble_addr_type);
-                        break; // Ket noi voi remote dau tien tim thay
-                    }
-                }
-                esp_hid_scan_results_free(results);
-            } else {
-                ESP_LOGI(TAG, "Chua tim thay Remote. Hay bam giu nut OK + Back tren Remote!");
-            }
+            ESP_LOGI(TAG, "Bat dau luot quet tim Remote...");
+            esp_ble_gap_start_scanning(5);
         }
-        vTaskDelay(pdMS_TO_TICKS(7000));
+        vTaskDelay(pdMS_TO_TICKS(8000));
     }
 }
 
@@ -160,6 +186,8 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
 
+    ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
+
     // Setup BLE Security Manager Protocol
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND;
     esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;
@@ -180,6 +208,9 @@ extern "C" void app_main(void)
     };
     ESP_ERROR_CHECK(esp_hidh_init(&config));
 
-    // 5. Tao Task quet tim Remote BLE theo chu ky
+    // Thiet lap thong so quet GAP
+    esp_ble_gap_set_scan_params(&ble_scan_params);
+
+    // 5. Tao Task quet tim Remote BLE dinh ky
     xTaskCreate(scan_task, "ble_scan_task", 4096, NULL, 5, NULL);
 }
