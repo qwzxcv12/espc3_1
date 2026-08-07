@@ -1,3 +1,0 @@
-idf_component_register(SRC_DIRS "src" "src/platforms/esp32"
-                       INCLUDE_DIRS "src" "src/platforms/esp32" "."
-                       REQUIRES Adafruit-GFX-Library arduino)

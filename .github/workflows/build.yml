@@ -22,44 +22,25 @@ jobs:
           mkdir -p project/components
 
           # Copy main application files
-          cp CD_NOW.cpp project/main/main.cpp
+          cp BLUE_NOW.cpp project/main/main.cpp || cp main.cpp project/main/main.cpp || true
           cp *.h project/main/ || true
-          cp idf_component.yml project/main/
-          cp CMakeLists_main.txt project/main/CMakeLists.txt
-          cp sdkconfig.defaults project/
+          cp idf_component.yml project/main/ || true
+          cp CMakeLists_main.txt project/main/CMakeLists.txt || true
+          cp sdkconfig.defaults project/ || true
 
           # Create root CMakeLists.txt
-          printf 'cmake_minimum_required(VERSION 3.16)\nadd_compile_definitions("esp_wifi_set_band_mode=(int)" "WIFI_BAND_MODE_2G_ONLY=0")\ninclude($ENV{IDF_PATH}/tools/cmake/project.cmake)\nproject(CD_NOW)\n' > project/CMakeLists.txt
+          printf 'cmake_minimum_required(VERSION 3.16)\ninclude($ENV{IDF_PATH}/tools/cmake/project.cmake)\nproject(BLUE_NOW)\n' > project/CMakeLists.txt
 
-          # Clone and configure external libraries (components)
-          # 1. ESP32-HUB75-MatrixPanel-I2S-DMA
-          git clone --depth 1 https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA.git project/components/ESP32-HUB75-MatrixPanel-I2S-DMA
-          cp CMakeLists_hub75.txt project/components/ESP32-HUB75-MatrixPanel-I2S-DMA/CMakeLists.txt
+          # Copy external components if present
+          if [ -f CMakeLists_hub75.txt ]; then
+            git clone --depth 1 https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-I2S-DMA.git project/components/ESP32-HUB75-MatrixPanel-I2S-DMA || true
+            cp CMakeLists_hub75.txt project/components/ESP32-HUB75-MatrixPanel-I2S-DMA/CMakeLists.txt || true
+          fi
 
-          # 2. Adafruit-GFX-Library
-          git clone --depth 1 https://github.com/adafruit/Adafruit-GFX-Library.git project/components/Adafruit-GFX-Library
-          cp CMakeLists_adafruit_gfx.txt project/components/Adafruit-GFX-Library/CMakeLists.txt
-
-          # 3. Adafruit_BusIO
-          git clone --depth 1 https://github.com/adafruit/Adafruit_BusIO.git project/components/Adafruit_BusIO
-          cp CMakeLists_adafruit_busio.txt project/components/Adafruit_BusIO/CMakeLists.txt
-
-          # 4. U8g2_for_Adafruit_GFX
-          git clone --depth 1 https://github.com/olikraus/U8g2_for_Adafruit_GFX.git project/components/U8g2_for_Adafruit_GFX
-          cp CMakeLists_u8g2_for_adafruit_gfx.txt project/components/U8g2_for_Adafruit_GFX/CMakeLists.txt
-
-          # 5. U8g2
-          git clone --depth 1 https://github.com/olikraus/u8g2.git project/components/u8g2
-          echo 'idf_component_register(SRC_DIRS "csrc" INCLUDE_DIRS "csrc")' > project/components/u8g2/CMakeLists.txt
-
-          # 6. Arduino Core
-          git clone --depth 1 -b release/v3.0.x https://github.com/espressif/arduino-esp32.git project/components/arduino
-
-      - name: Build Firmware
-        shell: bash
-        run: |
+          # Build Firmware
           . $IDF_PATH/export.sh
           cd project
+          idf.py set-target esp32c3
           idf.py build
 
       - name: Upload Firmware Artifacts

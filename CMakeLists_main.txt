@@ -1,3 +1,3 @@
 idf_component_register(SRCS "main.cpp"
-                       INCLUDE_DIRS "."
-                       PRIV_REQUIRES nvs_flash esp_wifi esp_event esp_netif esp_http_server mqtt json arduino ESP32-HUB75-MatrixPanel-I2S-DMA Adafruit-GFX-Library Adafruit_BusIO U8g2_for_Adafruit_GFX u8g2)
+                    INCLUDE_DIRS "."
+                    REQUIRES nvs_flash esp_hw_support driver)
