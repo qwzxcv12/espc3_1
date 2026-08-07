@@ -1,8 +1,9 @@
 CONFIG_IDF_TARGET="esp32c3"
 CONFIG_FREERTOS_HZ=1000
 
-# Cau hinh dinh huong Console Log ra cong USB Serial/JTAG CDC (CHO PUTTY HIEN THI LIVE)
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# Cau hinh dong thoi cho phep Console Log ra ca UART va USB Serial JTAG
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG=y
 
 # Bluetooth configuration
 CONFIG_BT_ENABLED=y
