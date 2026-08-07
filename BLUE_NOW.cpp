@@ -38,14 +38,14 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 {
     switch (event) {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-        ESP_LOGI(TAG, "Da thiet lap thong so quet BLE. Bat dau quet ngay...");
+        ESP_LOGI(TAG, "Da thiet lap xong scan_params. Bat dau quet ngay lap tuc...");
         esp_ble_gap_start_scanning(10);
         break;
 
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
         
-        if (scan_result->scan_rst.search_evt == ESP_GAP_BLE_SCAN_RESULT_EVT) {
+        if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_RESULT_EVT) {
             uint8_t *adv_name = NULL;
             uint8_t adv_name_len = 0;
             adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
@@ -61,23 +61,23 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             }
 
             // In moi thiet bi BLE phat hien duoc
-            ESP_LOGI(TAG, "[BLE SCAN] %-20s | MAC: " MAC_STR " | RSSI: %d", 
-                     name_str[0] ? name_str : "(Un-named)", 
+            ESP_LOGI(TAG, "[BLE DISCOVER] %-20s | MAC: " MAC_STR " | RSSI: %d", 
+                     name_str[0] ? name_str : "(Khong ten)", 
                      MAC_VAL(scan_result->scan_rst.bda), 
                      scan_result->scan_rst.rssi);
 
-            if (!is_connected && adv_name_len > 0) {
-                // Neu phat hien tên Remote hoac TV/BRL/G10/Voice
-                if (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
-                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice")) {
+            if (!is_connected) {
+                // Neu phat hien ten Remote hoac TV/BRL/G10/Voice
+                if (adv_name_len > 0 && (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
+                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice"))) {
                     
                     ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE [%s]! DANG KET NOI...", name_str);
                     esp_ble_gap_stop_scanning();
                     esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
                 }
             }
-        } else if (scan_result->scan_rst.search_evt == ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
-            ESP_LOGI(TAG, "Hoan tat 1 luot quet BLE.");
+        } else if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
+            ESP_LOGI(TAG, "Hoan tat luot quet BLE.");
         }
         break;
     }
@@ -143,9 +143,10 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
 
 static void scan_task(void *pvParameters)
 {
+    // Bat dau quet NGAY LAP TUC khi boot
     while (1) {
         if (!is_connected) {
-            ESP_LOGI(TAG, "Bat dau luot quet tim Remote BLE...");
+            ESP_LOGI(TAG, ">>> KHOI DONG LUOT QUET TIM REMOTE BLE...");
             esp_ble_gap_start_scanning(10);
         }
         vTaskDelay(pdMS_TO_TICKS(12000));
@@ -187,7 +188,7 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
 
-    // 4. Khoi tao ESP-HID Host THU CUC
+    // 4. Khoi tao ESP-HID Host
     esp_hidh_config_t config = {
         .callback = hidh_callback,
         .event_stack_size = 4096,
@@ -195,7 +196,7 @@ extern "C" void app_main(void)
     };
     ESP_ERROR_CHECK(esp_hidh_init(&config));
 
-    // 5. Dang ky BLE GAP Callback SAU KHI esp_hidh_init khoi tao
+    // 5. Dang ky BLE GAP Callback
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
 
     // Setup BLE Security Manager Protocol
@@ -213,6 +214,6 @@ extern "C" void app_main(void)
     // Thiet lap thong so quet GAP
     esp_ble_gap_set_scan_params(&ble_scan_params);
 
-    // 6. Tao Task quet tim Remote BLE dinh ky
+    // 6. Tao Task quet tim Remote BLE
     xTaskCreate(scan_task, "ble_scan_task", 4096, NULL, 5, NULL);
 }
