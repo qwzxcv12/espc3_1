@@ -51,23 +51,33 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         if (!is_connected) {
             bool is_target_remote = (name[0] && (strstr(name, "Remote") || strstr(name, "BRL") || 
                                                 strstr(name, "TV") || strstr(name, "G10") || strstr(name, "Voice")));
-            // Nhan dien thiet bi o khoang cach nhin thac (RSSI > -75 dBm)
-            bool is_very_close = (event->disc.rssi > -75);
+            bool is_very_close = (event->disc.rssi > -70);
 
             if (is_hid_uuid || is_target_remote || is_very_close) {
                 ESP_LOGI(TAG, "-------------------------------------------------");
-                ESP_LOGI(TAG, ">>> KET NOI NGAY TOI REMOTE: MAC %02x:%02x:%02x:%02x:%02x:%02x (RSSI: %d dBm)... <<<",
-                         addr[5], addr[4], addr[3], addr[2], addr[1], addr[0], event->disc.rssi);
+                ESP_LOGI(TAG, ">>> DA TIM THAY REMOTE! DANG THUC HIEN KET NOI TOI MAC %02x:%02x:%02x:%02x:%02x:%02x... <<<",
+                         addr[5], addr[4], addr[3], addr[2], addr[1], addr[0]);
                 ESP_LOGI(TAG, "-------------------------------------------------");
 
                 ble_gap_disc_cancel();
-                
-                // Nhap nhay LED xac nhan va bat sang LED
-                for (int i = 0; i < 6; i++) {
-                    gpio_set_level(LED_GPIO, i % 2);
-                    vTaskDelay(pdMS_TO_TICKS(80));
+
+                ble_addr_t peer_addr;
+                memcpy(peer_addr.val, event->disc.addr.val, 6);
+                peer_addr.type = event->disc.addr.type;
+
+                struct ble_gap_conn_params conn_params;
+                memset(&conn_params, 0, sizeof(conn_params));
+                conn_params.scan_itvl = 0x0010;
+                conn_params.scan_window = 0x0010;
+                conn_params.itvl_min = 12;
+                conn_params.itvl_max = 24;
+                conn_params.latency = 0;
+                conn_params.supervision_timeout = 400;
+
+                int res = ble_gap_connect(BLE_OWN_ADDR_PUBLIC, &peer_addr, 10000, &conn_params, ble_gap_event, NULL);
+                if (res != 0) {
+                    ESP_LOGE(TAG, "Loi ble_gap_connect: %d", res);
                 }
-                gpio_set_level(LED_GPIO, 1);
                 is_connected = true;
             }
         }
@@ -75,13 +85,27 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
     }
     case BLE_GAP_EVENT_CONNECT: {
         if (event->connect.status == 0) {
-            ESP_LOGI(TAG, "✅ KET NOI BLUETOOTH THANH CONG!");
+            ESP_LOGI(TAG, "=================================================");
+            ESP_LOGI(TAG, "  ✅ KET NOI BLUETOOTH VOI REMOTE THANH CONG!");
+            ESP_LOGI(TAG, "=================================================");
             is_connected = true;
+            
+            // Nhap nhay LED xac nhan va bat sang LED 8
+            for (int i = 0; i < 8; i++) {
+                gpio_set_level(LED_GPIO, i % 2);
+                vTaskDelay(pdMS_TO_TICKS(80));
+            }
             gpio_set_level(LED_GPIO, 1);
         } else {
-            ESP_LOGE(TAG, "❌ KET NOI THAT BAI: %d", event->connect.status);
+            ESP_LOGE(TAG, "❌ KET NOI THAT BAI: %d. Tu dong quet lai...", event->connect.status);
             is_connected = false;
             gpio_set_level(LED_GPIO, 0);
+            
+            struct ble_gap_disc_params disc_params;
+            memset(&disc_params, 0, sizeof(disc_params));
+            disc_params.filter_duplicates = 1;
+            disc_params.passive = 0;
+            ble_gap_disc(BLE_OWN_ADDR_PUBLIC, BLE_HS_FOREVER, &disc_params, ble_gap_event, NULL);
         }
         return 0;
     }
@@ -89,6 +113,12 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         ESP_LOGW(TAG, "⚠️ NGAT KET NOI BLUETOOTH. DANG KHOI DONG LAI QUET...");
         is_connected = false;
         gpio_set_level(LED_GPIO, 0);
+        
+        struct ble_gap_disc_params disc_params;
+        memset(&disc_params, 0, sizeof(disc_params));
+        disc_params.filter_duplicates = 1;
+        disc_params.passive = 0;
+        ble_gap_disc(BLE_OWN_ADDR_PUBLIC, BLE_HS_FOREVER, &disc_params, ble_gap_event, NULL);
         return 0;
     }
     default:
