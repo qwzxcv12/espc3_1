@@ -26,27 +26,36 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         struct ble_hs_adv_fields fields;
         int rc = ble_hs_adv_parse_fields(&fields, event->disc.data, event->disc.length_data);
         char name[32] = {0};
-        if (rc == 0 && fields.name != NULL && fields.name_len > 0) {
-            snprintf(name, sizeof(name), "%.*s", fields.name_len, (char *)fields.name);
+        bool is_hid_uuid = false;
+
+        if (rc == 0) {
+            if (fields.name != NULL && fields.name_len > 0) {
+                snprintf(name, sizeof(name), "%.*s", fields.name_len, (char *)fields.name);
+            }
+            if (fields.uuids16 != NULL && fields.num_uuids16 > 0) {
+                for (int i = 0; i < fields.num_uuids16; i++) {
+                    if (fields.uuids16[i].value == 0x1812 || fields.uuids16[i].value == 0x180F) {
+                        is_hid_uuid = true;
+                    }
+                }
+            }
         }
 
         const uint8_t *addr = event->disc.addr.val;
-        ESP_LOGI(TAG, "[BLE DISCOVER] %-20s | MAC: %02x:%02x:%02x:%02x:%02x:%02x | RSSI: %d dBm",
+        ESP_LOGI(TAG, "[BLE DISCOVER] %-20s | MAC: %02x:%02x:%02x:%02x:%02x:%02x | RSSI: %d dBm %s",
                  name[0] ? name : "(Khong ten)",
                  addr[5], addr[4], addr[3], addr[2], addr[1], addr[0],
-                 event->disc.rssi);
+                 event->disc.rssi,
+                 is_hid_uuid ? "<=== [THIET BI HID/REMOTE]" : "");
 
-        // Tu dong ket noi neu:
-        // 1. Ten co chu Remote/TV/BRL/G10/Voice
-        // 2. HOAC thiet bi dang o RAT GAN ESP32-C3 (RSSI mạnh > -50 dBm)
         if (!is_connected) {
             bool is_target_remote = (name[0] && (strstr(name, "Remote") || strstr(name, "BRL") || 
                                                 strstr(name, "TV") || strstr(name, "G10") || strstr(name, "Voice")));
-            bool is_very_close = (event->disc.rssi > -50); // Thiet bi ngay canh ESP32-C3
+            bool is_very_close = (event->disc.rssi > -60);
 
-            if (is_target_remote || is_very_close) {
+            if (is_hid_uuid || is_target_remote || is_very_close) {
                 ESP_LOGI(TAG, "-------------------------------------------------");
-                ESP_LOGI(TAG, ">>> PHAT HIEN THIET BI GAN/REMOTE: MAC %02x:%02x:%02x:%02x:%02x:%02x (RSSI: %d dBm)! DANG KET NOI... <<<",
+                ESP_LOGI(TAG, ">>> KET NOI NGAY TOI REMOTE: MAC %02x:%02x:%02x:%02x:%02x:%02x (RSSI: %d dBm)... <<<",
                          addr[5], addr[4], addr[3], addr[2], addr[1], addr[0], event->disc.rssi);
                 ESP_LOGI(TAG, "-------------------------------------------------");
 
