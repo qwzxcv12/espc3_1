@@ -38,14 +38,14 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
 {
     switch (event) {
     case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-        ESP_LOGI(TAG, "Da thiet lap thong so quet BLE. Bat dau quet...");
-        esp_ble_gap_start_scanning(5);
+        ESP_LOGI(TAG, "Da thiet lap thong so quet BLE. Bat dau quet ngay...");
+        esp_ble_gap_start_scanning(10);
         break;
+
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
         
-        // Kiem tra su kien ket qua quet BLE
-        if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_RESULT_EVT) {
+        if (scan_result->scan_rst.search_evt == ESP_GAP_BLE_SCAN_RESULT_EVT) {
             uint8_t *adv_name = NULL;
             uint8_t adv_name_len = 0;
             adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
@@ -60,21 +60,24 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                 snprintf(name_str, sizeof(name_str), "%.*s", adv_name_len, (char *)adv_name);
             }
 
-            ESP_LOGI(TAG, "Tim thay thiet bi BLE: %-20s | MAC: " MAC_STR " | RSSI: %d", 
-                     name_str[0] ? name_str : "Un-named", MAC_VAL(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
+            // In moi thiet bi BLE phat hien duoc
+            ESP_LOGI(TAG, "[BLE SCAN] %-20s | MAC: " MAC_STR " | RSSI: %d", 
+                     name_str[0] ? name_str : "(Un-named)", 
+                     MAC_VAL(scan_result->scan_rst.bda), 
+                     scan_result->scan_rst.rssi);
 
-            if (!is_connected) {
-                // Tự động kết nối nếu tìm thấy Remote (hoặc bất kỳ thiết bị BLE HID nào)
-                if (adv_name_len > 0 && (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
-                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice"))) {
+            if (!is_connected && adv_name_len > 0) {
+                // Neu phat hien tên Remote hoac TV/BRL/G10/Voice
+                if (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
+                    strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice")) {
                     
-                    ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE PHU HOP! DANG KET NOI TOI [%s]...", name_str);
+                    ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE [%s]! DANG KET NOI...", name_str);
                     esp_ble_gap_stop_scanning();
                     esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
                 }
             }
-        } else if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
-            ESP_LOGI(TAG, "Hoan tat luot quet BLE.");
+        } else if (scan_result->scan_rst.search_evt == ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
+            ESP_LOGI(TAG, "Hoan tat 1 luot quet BLE.");
         }
         break;
     }
@@ -92,7 +95,6 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
     case ESP_HIDH_START_EVENT: {
         ESP_LOGI(TAG, "=================================================");
         ESP_LOGI(TAG, "  HID Host Da Khoi Dong! Dang quet Remote BLE...");
-        ESP_LOGI(TAG, "  (Hay nhan giu OK + Back tren Remote de bat Pairing)");
         ESP_LOGI(TAG, "=================================================");
         break;
     }
@@ -143,10 +145,10 @@ static void scan_task(void *pvParameters)
 {
     while (1) {
         if (!is_connected) {
-            ESP_LOGI(TAG, "Bat dau luot quet tim Remote...");
-            esp_ble_gap_start_scanning(5);
+            ESP_LOGI(TAG, "Bat dau luot quet tim Remote BLE...");
+            esp_ble_gap_start_scanning(10);
         }
-        vTaskDelay(pdMS_TO_TICKS(8000));
+        vTaskDelay(pdMS_TO_TICKS(12000));
     }
 }
 
@@ -177,7 +179,7 @@ extern "C" void app_main(void)
     gpio_config(&io_conf);
     gpio_set_level(LED_GPIO, 0);
 
-    // 3. Khoi tao BLE Host Client
+    // 3. Khoi tao BLE Controller & Bluedroid
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BLE));
@@ -185,6 +187,15 @@ extern "C" void app_main(void)
     ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
 
+    // 4. Khoi tao ESP-HID Host THU CUC
+    esp_hidh_config_t config = {
+        .callback = hidh_callback,
+        .event_stack_size = 4096,
+        .callback_arg = NULL,
+    };
+    ESP_ERROR_CHECK(esp_hidh_init(&config));
+
+    // 5. Dang ky BLE GAP Callback SAU KHI esp_hidh_init khoi tao
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event_handler));
 
     // Setup BLE Security Manager Protocol
@@ -199,17 +210,9 @@ extern "C" void app_main(void)
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 
-    // 4. Khoi tao ESP-HID Host
-    esp_hidh_config_t config = {
-        .callback = hidh_callback,
-        .event_stack_size = 4096,
-        .callback_arg = NULL,
-    };
-    ESP_ERROR_CHECK(esp_hidh_init(&config));
-
     // Thiet lap thong so quet GAP
     esp_ble_gap_set_scan_params(&ble_scan_params);
 
-    // 5. Tao Task quet tim Remote BLE dinh ky
+    // 6. Tao Task quet tim Remote BLE dinh ky
     xTaskCreate(scan_task, "ble_scan_task", 4096, NULL, 5, NULL);
 }
