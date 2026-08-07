@@ -2,7 +2,6 @@
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "freertos/event_groups.h"
 #include "esp_system.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
@@ -16,6 +15,7 @@
 #include "esp_gatt_defs.h"
 #include "esp_gatt_common_api.h"
 #include "esp_hidh.h"
+#include "esp_hid_gap.h"
 #include "esp_hid_common.h"
 
 static const char *TAG = "ESP32C3_BLE_REMOTE";
@@ -66,12 +66,11 @@ static void hidh_callback(void *handler_args, esp_event_base_t base, int32_t id,
         // In chi tiet cac byte du lieu tra ve tu Remote
         ESP_LOG_BUFFER_HEX(TAG, param->input.data, param->input.length);
 
-        // Dao trang thai LED GPIO 8 moi khi phap phim bấm
+        // Dao trang thai LED GPIO 8 moi khi co phim bam
         static bool led_state = false;
         led_state = !led_state;
         gpio_set_level(LED_GPIO, led_state ? 1 : 0);
 
-        // Phap phan tich phim bam co ban tu du lieu HID
         if (param->input.length >= 2) {
             uint8_t b0 = param->input.data[0];
             uint8_t b1 = param->input.data[1];
@@ -106,12 +105,12 @@ static void scan_task(void *pvParameters)
                 for (size_t i = 0; i < num_results; i++) {
                     const char *dev_name = results[i].name ? results[i].name : "Unknown Device";
                     ESP_LOGI(TAG, " [%d] MAC: " MAC_STR " | RSSI: %d | Name: %s | Usage: %d",
-                             i + 1, MAC_VAL(results[i].bda), results[i].rssi, dev_name, results[i].usage);
+                             (int)(i + 1), MAC_VAL(results[i].bda), results[i].rssi, dev_name, results[i].usage);
                     
-                    // Neu thiet bi la HID Device (Remote / Keyboard / Combo)
-                    if (results[i].usage == ESP_HID_USAGE_REMOTE || 
-                        results[i].usage == ESP_HID_USAGE_KEYBOARD || 
-                        results[i].usage == ESP_HID_USAGE_COMBO ||
+                    // Neu thiet bi la HID Device (Keyboard, Gamepad, Generic hoặc chứa tên Remote/TV/BRL)
+                    if (results[i].usage == ESP_HID_USAGE_KEYBOARD || 
+                        results[i].usage == ESP_HID_USAGE_GAMEPAD || 
+                        results[i].usage == ESP_HID_USAGE_GENERIC ||
                         (results[i].name && (strstr(results[i].name, "Remote") || strstr(results[i].name, "BRL") || strstr(results[i].name, "TV")))) {
                         
                         ESP_LOGI(TAG, ">>> THAY REMOTE PHU HOP! DANG KET NOI TOI [%s]...", dev_name);
@@ -121,7 +120,7 @@ static void scan_task(void *pvParameters)
                 }
                 esp_hid_scan_results_free(results);
             } else {
-                ESP_LOGI(TAG, "Chua tim thay Remote. Hãy bấm giữ nút OK + Back trên Remote!");
+                ESP_LOGI(TAG, "Chua tim thay Remote. Hay bam giu nut OK + Back tren Remote!");
             }
         }
         vTaskDelay(pdMS_TO_TICKS(7000));
@@ -153,16 +152,15 @@ extern "C" void app_main(void)
     gpio_config(&io_conf);
     gpio_set_level(LED_GPIO, 0);
 
-    // 3. Khoi tao BLE Host Client (Security Manager)
+    // 3. Khoi tao BLE Host Client
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BLE));
 
-    esp_bluedroid_config_t bluedroid_cfg = { .magic = ESP_BLUEDROID_INIT_CONFIG_MAGIC };
-    ESP_ERROR_CHECK(esp_bluedroid_init_with_cfg(&bluedroid_cfg));
+    ESP_ERROR_CHECK(esp_bluedroid_init());
     ESP_ERROR_CHECK(esp_bluedroid_enable());
 
-    // Setup BLE Security
+    // Setup BLE Security Manager Protocol
     esp_ble_auth_req_t auth_req = ESP_LE_AUTH_BOND;
     esp_ble_io_cap_t iocap = ESP_IO_CAP_NONE;
     uint8_t key_size = 16;
@@ -172,7 +170,7 @@ extern "C" void app_main(void)
     esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP_MODE, &iocap, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &key_size, sizeof(uint8_t));
     esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &init_key, sizeof(uint8_t));
-    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RESPONSE_KEY, &rsp_key, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_RSP_KEY, &rsp_key, sizeof(uint8_t));
 
     // 4. Khoi tao ESP-HID Host
     esp_hidh_config_t config = {
