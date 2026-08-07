@@ -43,7 +43,9 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
         break;
     case ESP_GAP_BLE_SCAN_RESULT_EVT: {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
-        if (scan_result->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_RES_EVT) {
+        
+        // Kiem tra su kien ket qua quet BLE
+        if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_RESULT_EVT) {
             uint8_t *adv_name = NULL;
             uint8_t adv_name_len = 0;
             adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
@@ -56,21 +58,22 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
             char name_str[32] = {0};
             if (adv_name && adv_name_len > 0) {
                 snprintf(name_str, sizeof(name_str), "%.*s", adv_name_len, (char *)adv_name);
-                ESP_LOGI(TAG, "Tim thay BLE: %s [MAC: " MAC_STR " | RSSI: %d]", 
-                         name_str, MAC_VAL(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
             }
 
+            ESP_LOGI(TAG, "Tim thay thiet bi BLE: %-20s | MAC: " MAC_STR " | RSSI: %d", 
+                     name_str[0] ? name_str : "Un-named", MAC_VAL(scan_result->scan_rst.bda), scan_result->scan_rst.rssi);
+
             if (!is_connected) {
-                // Ket noi neu ten thiet bi co chua chu Remote, TV, BRL, G10 hoac Voice
+                // Tự động kết nối nếu tìm thấy Remote (hoặc bất kỳ thiết bị BLE HID nào)
                 if (adv_name_len > 0 && (strstr(name_str, "Remote") || strstr(name_str, "BRL") || 
                     strstr(name_str, "TV") || strstr(name_str, "G10") || strstr(name_str, "Voice"))) {
                     
-                    ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE! DANG KET NOI TOI [%s]...", name_str);
+                    ESP_LOGI(TAG, ">>> PHAT HIEN REMOTE PHU HOP! DANG KET NOI TOI [%s]...", name_str);
                     esp_ble_gap_stop_scanning();
                     esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
                 }
             }
-        } else if (scan_result->scan_rst.search_evt == ESP_GAP_SEARCH_INQ_CMPL_EVT) {
+        } else if ((int)scan_result->scan_rst.search_evt == (int)ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT) {
             ESP_LOGI(TAG, "Hoan tat luot quet BLE.");
         }
         break;
@@ -149,7 +152,6 @@ static void scan_task(void *pvParameters)
 
 extern "C" void app_main(void)
 {
-    // Tat bffering de luon xuat log ngay lap tuc qua USB CDC
     setvbuf(stdout, NULL, _IONBF, 0);
 
     ESP_LOGI(TAG, "=================================================");
