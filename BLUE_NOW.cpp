@@ -36,16 +36,15 @@ static esp_ble_scan_params_t ble_scan_params = {
 
 static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
 {
-    switch (event) {
-    case ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT:
-        ESP_LOGI(TAG, "Thiet lap scan_params thanh cong (Status: %d).", param->scan_param_cmpl.status);
-        break;
-
-    case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+    if (event == ESP_GAP_BLE_SCAN_PARAM_SET_COMPLETE_EVT) {
+        ESP_LOGI(TAG, "Thiet lap scan_params thanh cong. Bat dau quet...");
+        esp_ble_gap_start_scanning(10);
+    } 
+    else if (event == ESP_GAP_BLE_SCAN_RESULT_EVT) {
         esp_ble_gap_cb_param_t *scan_result = (esp_ble_gap_cb_param_t *)param;
-        
-        switch (scan_result->scan_rst.search_evt) {
-        case ESP_GAP_BLE_SCAN_RESULT_EVT: {
+        esp_gap_search_evt_t search_evt = scan_result->scan_rst.search_evt;
+
+        if (search_evt == ESP_GAP_SEARCH_INQ_RES_EVT || (int)search_evt == 0) {
             uint8_t *adv_name = NULL;
             uint8_t adv_name_len = 0;
             adv_name = esp_ble_resolve_adv_data(scan_result->scan_rst.ble_adv,
@@ -74,18 +73,9 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param
                     esp_hidh_dev_open(scan_result->scan_rst.bda, ESP_HID_TRANSPORT_BLE, scan_result->scan_rst.ble_addr_type);
                 }
             }
-            break;
-        }
-        case ESP_GAP_BLE_SCAN_STOP_COMPLETE_EVT:
+        } else if (search_evt == ESP_GAP_SEARCH_INQ_CMPL_EVT) {
             ESP_LOGI(TAG, "Hoan tat 1 luot quet BLE.");
-            break;
-        default:
-            break;
         }
-        break;
-    }
-    default:
-        break;
     }
 }
 
