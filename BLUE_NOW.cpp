@@ -62,15 +62,11 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
 
 static void start_scan(void)
 {
-    struct ble_gap_disc_params disc_params = {
-        .filter_duplicates = 1,
-        .passive = 0,
-        .itvl = 0,
-        .window = 0,
-        .filter_policy = 0,
-        .limited = 0,
-    };
-    
+    struct ble_gap_disc_params disc_params;
+    memset(&disc_params, 0, sizeof(disc_params));
+    disc_params.filter_duplicates = 1;
+    disc_params.passive = 0;
+
     // Quet BLE liên tuc
     int rc = ble_gap_disc(BLE_OWN_ADDR_PUBLIC, BLE_HS_FOREVER, &disc_params, ble_gap_event, NULL);
     if (rc != 0) {
