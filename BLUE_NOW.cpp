@@ -51,7 +51,8 @@ static int ble_gap_event(struct ble_gap_event *event, void *arg)
         if (!is_connected) {
             bool is_target_remote = (name[0] && (strstr(name, "Remote") || strstr(name, "BRL") || 
                                                 strstr(name, "TV") || strstr(name, "G10") || strstr(name, "Voice")));
-            bool is_very_close = (event->disc.rssi > -60);
+            // Nhan dien thiet bi o khoang cach nhin thac (RSSI > -75 dBm)
+            bool is_very_close = (event->disc.rssi > -75);
 
             if (is_hid_uuid || is_target_remote || is_very_close) {
                 ESP_LOGI(TAG, "-------------------------------------------------");
