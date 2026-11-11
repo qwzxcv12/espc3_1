@@ -295,7 +295,7 @@ static void printFormattedText(const char *text, bool newline = true)
 }
 
 // ============================================================================
-// HÀM IN PHIẾU CHUẨN THEO MẪU (GỒM LOGO BÊN TRÁI, TIÊU ĐỀ, STT, LỜI NHẮN, FOOTER)
+// HÀM IN PHIẾU CHUẨN THEO MẪU (BỐ CỤC CÂN ĐỐI, THẨM MỸ, GIÃN DÒNG CHUYÊN NGHIỆP)
 // ============================================================================
 void printSampleTicket(int ticket_num = -1)
 {
@@ -306,21 +306,25 @@ void printSampleTicket(int ticket_num = -1)
         }
     }
 
-    ESP_LOGI(TAG, ">>> DANG IN PHIEU THEO MAU (COMPACT) | SO THU TU: %d <<<", ticket_num);
+    ESP_LOGI(TAG, ">>> DANG IN PHIEU THEO MAU (CAN DOI & DEP) | SO THU TU: %d <<<", ticket_num);
 
     printer.init();
     printer.resetSettings();
 
-    // 1. IN TIÊU ĐỀ ĐƠN VỊ & LOGO
+    // Thiết lập khoảng cách dòng chuẩn (38 dots giúp các hàng không bị dính vào nhau)
+    printer.setLineSpacing(38);
+
+    // 1. IN TIÊU ĐỀ ĐƠN VỊ / CƠ QUAN
 #if (TICKET_HEADER_MODE == 1)
     // Chế độ 1: In Header Bitmap (Logo bên trái + Tiêu đề bên phải dạng ảnh)
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.printBitmap(HEADER_BITMAP, HEADER_WIDTH_DOTS, HEADER_HEIGHT_DOTS);
 #else
-    // Chế độ 0: (MẶC ĐỊNH) In Văn Bản Động (Dễ đổi nội dung trong ticket_config.h, in siêu tốc)
+    // Chế độ 0: (MẶC ĐỊNH) In Văn Bản Động Tràn Khổ Giấy (Đổi nội dung trong ticket_config.h)
     #if ENABLE_PRINT_LOGO
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.printBitmap(LOGO_BITMAP, LOGO_WIDTH_DOTS, LOGO_HEIGHT_DOTS);
+    printer.println();
     #endif
 
     printer.setAlignment(ThermalPrinter::CENTER);
@@ -330,6 +334,7 @@ void printSampleTicket(int ticket_num = -1)
     printer.setBold(false);
     printFormattedText(TICKET_HEADER_ADDRESS, true);
 
+    // Đường kẻ phân cách tràn khổ giấy
     #if (PRINTER_PAPER_WIDTH_MM == 80)
     printer.line("------------------------------------------------");
     #else
@@ -337,30 +342,44 @@ void printSampleTicket(int ticket_num = -1)
     #endif
 #endif
 
-    // 2. LĨNH VỰC & QUẦY (CĂN GIỮA, IN ĐẬM)
+    // 2. LĨNH VỰC & QUẦY PHỤC VỤ (CĂN GIỮA, CHỮ ĐẬM)
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.setBold(true);
     printFormattedText(TICKET_SERVICE_NAME, true);
     printFormattedText(TICKET_COUNTER_NAME, true);
     printer.setBold(false);
 
-    // 3. SỐ THỨ TỰ (STT) TO CĂN GIỮA (GỌN GÀNG, KHÔNG QUÁ TO LÀM DÀI PHIẾU)
+    // 3. KHOẢNG ĐỆM TRƯỚC SỐ THỨ TỰ (Tạo không gian thở để số STT nổi bật)
+    printer.println();
+
+    // 4. SỐ THỨ TỰ (STT HERO ELEMENT - TO, ĐẬM, CĂN GIỮA)
     printer.setBold(true);
-    printer.setSize(STT_FONT_SIZE); // Cỡ 3 vừa đẹp và cân đối
+    printer.setSize(STT_FONT_SIZE); // Cỡ 3 hoặc 4 to rõ
     char num_buf[16];
     snprintf(num_buf, sizeof(num_buf), "%d", ticket_num);
     printer.println(num_buf);
     printer.setSize(1);
     printer.setBold(false);
 
-    // 4. LỜI NHẮN HƯỚNG DẪN KHÁCH HÀNG (CĂN GIỮA)
+    // 5. KHOẢNG ĐỆM SAU SỐ THỨ TỰ
+    printer.println();
+
+    // 6. LỜI NHẮN HƯỚNG DẪN KHÁCH HÀNG (CĂN GIỮA, GIÃN DÒNG DỄ ĐỌC)
     printer.setAlignment(ThermalPrinter::CENTER);
+    printer.setLineSpacing(36);
     printFormattedText(TICKET_NOTICE_LINE1, true);
     printFormattedText(TICKET_NOTICE_LINE2, true);
 
-    // 5. CHÂN TRANG (FOOTER METADATA - CĂN GIỮA HOẶC TRÁI)
+    // 7. ĐƯỜNG KẺ PHÂN CÁCH TRƯỚC FOOTER
+    #if (PRINTER_PAPER_WIDTH_MM == 80)
+    printer.line("------------------------------------------------");
+    #else
+    printer.line("--------------------------------");
+    #endif
+
+    // 8. THÔNG TIN CHÂN TRANG (FOOTER METADATA - CÂN ĐỐI 2 BÊN)
     char time_str[64];
-    snprintf(time_str, sizeof(time_str), "STT in luc: 13:10 - 11/11/2026   Dang goi: %d", TICKET_CURRENT_CALLING);
+    snprintf(time_str, sizeof(time_str), "STT in luc: 13:10 - 11/11/2026   |   Dang goi: %d", TICKET_CURRENT_CALLING);
     printFormattedText(time_str, true);
 
     int waiting_turns = ticket_num - TICKET_CURRENT_CALLING;
@@ -368,10 +387,10 @@ void printSampleTicket(int ticket_num = -1)
     int est_minutes = waiting_turns * TICKET_EST_WAIT_PER_PERSON;
 
     char wait_str[64];
-    snprintf(wait_str, sizeof(wait_str), "Con cho %d luot - khoang %d phut nua (uoc tinh)", waiting_turns, est_minutes);
+    snprintf(wait_str, sizeof(wait_str), "Con cho: %d luot   ~   Uoc tinh: %d phut", waiting_turns, est_minutes);
     printFormattedText(wait_str, true);
 
-    // 6. KẾT THÚC VÀ CẮT GIẤY (GỌN GÀNG, TIẾT KIỆM GIẤY)
+    // 9. KẾT THÚC VÀ CẮT GIẤY (ĐỦ KHOẢNG CÁCH CHO DAO CẮT MÁY IN)
     printer.println();
     printer.cut();
 
