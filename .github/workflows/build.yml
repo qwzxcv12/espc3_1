@@ -22,14 +22,14 @@ jobs:
           mkdir -p project/components
 
           # Copy main application files
-          cp BLUE_NOW.cpp project/main/main.cpp || cp main.cpp project/main/main.cpp || true
+          cp ESP32C3_RS232.cpp project/main/main.cpp || cp main.cpp project/main/main.cpp || true
           cp *.h project/main/ || true
           cp idf_component.yml project/main/ || true
           cp CMakeLists_main.txt project/main/CMakeLists.txt || true
           cp sdkconfig.defaults project/ || true
 
           # Create root CMakeLists.txt
-          printf 'cmake_minimum_required(VERSION 3.16)\ninclude($ENV{IDF_PATH}/tools/cmake/project.cmake)\nproject(BLUE_NOW)\n' > project/CMakeLists.txt
+          printf 'cmake_minimum_required(VERSION 3.16)\ninclude($ENV{IDF_PATH}/tools/cmake/project.cmake)\nproject(ESP32C3_RS232)\n' > project/CMakeLists.txt
 
           # Copy external components if present
           if [ -f CMakeLists_hub75.txt ]; then
