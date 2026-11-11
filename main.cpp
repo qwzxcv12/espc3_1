@@ -45,6 +45,7 @@
 // File cấu hình thông tin in & Logo bitmap
 #include "ticket_config.h"
 #include "logo_bitmap.h"
+#include "header_bitmap.h"
 #include "thermal_printer.h"
 
 #if __has_include("led_strip.h")
@@ -294,7 +295,7 @@ static void printFormattedText(const char *text, bool newline = true)
 }
 
 // ============================================================================
-// HÀM IN PHIẾU CHUẨN THEO MẪU (GỒM LOGO, TIÊU ĐỀ, STT TO, LỜI NHẮN, FOOTER)
+// HÀM IN PHIẾU CHUẨN THEO MẪU (GỒM LOGO BÊN TRÁI, TIÊU ĐỀ, STT, LỜI NHẮN, FOOTER)
 // ============================================================================
 void printSampleTicket(int ticket_num = -1)
 {
@@ -305,58 +306,54 @@ void printSampleTicket(int ticket_num = -1)
         }
     }
 
-    ESP_LOGI(TAG, ">>> DANG IN PHIEU THEO MAU | SO THU TU: %d <<<", ticket_num);
+    ESP_LOGI(TAG, ">>> DANG IN PHIEU THEO MAU (COMPACT) | SO THU TU: %d <<<", ticket_num);
 
     printer.init();
     printer.resetSettings();
 
-    // 1. IN LOGO HÌNH TRÒN (nếu được bật trong ticket_config.h)
-#if ENABLE_PRINT_LOGO
+    // 1. IN HEADER (LOGO BÊN TRÁI + TIÊU ĐỀ BÊN PHẢI GIỐNG ẢNH MẪU)
+#if ENABLE_BITMAP_HEADER
+    // In Header Bitmap: Logo bên trái, Tiêu đề có dấu bên phải (In dạng ảnh nên dấu tiếng Việt cực nét)
+    printer.setAlignment(ThermalPrinter::CENTER);
+    printer.printBitmap(HEADER_BITMAP, HEADER_WIDTH_DOTS, HEADER_HEIGHT_DOTS);
+#else
+    // Fallback: In Logo ở giữa nếu không dùng Header Bitmap
+    #if ENABLE_PRINT_LOGO
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.printBitmap(LOGO_BITMAP, LOGO_WIDTH_DOTS, LOGO_HEIGHT_DOTS);
     printer.println();
-#endif
-
-    // 2. TIÊU ĐỀ ĐƠN VỊ / CƠ QUAN
+    #endif
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.setBold(true);
-    printer.setSize(1);
-
     printFormattedText(TICKET_HEADER_LINE1, true);
     printFormattedText(TICKET_HEADER_LINE2, true);
-
     printer.setBold(false);
     printFormattedText(TICKET_HEADER_ADDRESS, true);
+    printer.line("--------------------------------");
+#endif
 
-    // 3. ĐƯỜNG KẺ PHÂN CÁCH
-    printer.line("================================");
-
-    // 4. LĨNH VỰC & QUẦY
+    // 2. LĨNH VỰC & QUẦY (CĂN GIỮA, IN ĐẬM)
+    printer.setAlignment(ThermalPrinter::CENTER);
     printer.setBold(true);
     printFormattedText(TICKET_SERVICE_NAME, true);
     printFormattedText(TICKET_COUNTER_NAME, true);
     printer.setBold(false);
 
-    // 5. SỐ THỨ TỰ (STT) TO CĂN GIỮA
-    printer.println();
+    // 3. SỐ THỨ TỰ (STT) TO CĂN GIỮA (GỌN GÀNG, KHÔNG QUÁ TO LÀM DÀI PHIẾU)
     printer.setBold(true);
-    printer.setSize(5); // Chữ cỡ 5 rất to giống hệt phiếu mẫu
+    printer.setSize(STT_FONT_SIZE); // Cỡ 3 vừa đẹp và cân đối
     char num_buf[16];
     snprintf(num_buf, sizeof(num_buf), "%d", ticket_num);
     printer.println(num_buf);
     printer.setSize(1);
     printer.setBold(false);
-    printer.println();
 
-    // 6. LỜI NHẮN / HƯỚNG DẪN KHÁCH HÀNG
+    // 4. LỜI NHẮN HƯỚNG DẪN KHÁCH HÀNG (CĂN GIỮA)
     printer.setAlignment(ThermalPrinter::CENTER);
     printFormattedText(TICKET_NOTICE_LINE1, true);
     printFormattedText(TICKET_NOTICE_LINE2, true);
-    printer.println();
 
-    // 7. CHÂN TRANG (FOOTER METADATA)
-    printer.setAlignment(ThermalPrinter::LEFT);
-
+    // 5. CHÂN TRANG (FOOTER METADATA - CĂN GIỮA HOẶC TRÁI)
     char time_str[64];
     snprintf(time_str, sizeof(time_str), "STT in luc: 13:10 - 11/11/2026   Dang goi: %d", TICKET_CURRENT_CALLING);
     printFormattedText(time_str, true);
@@ -369,8 +366,7 @@ void printSampleTicket(int ticket_num = -1)
     snprintf(wait_str, sizeof(wait_str), "Con cho %d luot - khoang %d phut nua (uoc tinh)", waiting_turns, est_minutes);
     printFormattedText(wait_str, true);
 
-    // 8. KẾT THÚC VÀ CẮT GIẤY
-    printer.println();
+    // 6. KẾT THÚC VÀ CẮT GIẤY (GỌN GÀNG, CHỈ CẦN 2 DÒNG ĐỂ ĐẾN DAO CẮT)
     printer.println();
     printer.println();
     printer.cut();
