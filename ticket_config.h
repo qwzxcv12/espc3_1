@@ -34,9 +34,9 @@
 // ----------------------------------------------------------------------------
 // 3. SỐ THỨ TỰ (STT HERO NUMBER)
 // ----------------------------------------------------------------------------
-#define TICKET_START_NUMBER         1002
+#define TICKET_START_NUMBER         1
 #define TICKET_MAX_NUMBER           9999
-#define STT_FONT_SIZE               3       // Cỡ chữ STT: 3 hoặc 4 (to rõ, nổi bật)
+#define STT_FONT_SIZE               4       // Cỡ chữ STT: 3 hoặc 4 (to rõ, nổi bật)
 #define ENABLE_STT_PADDING          true    // true: Khoảng đệm trước & sau STT cho thoáng đẹp
 
 // ----------------------------------------------------------------------------
@@ -49,11 +49,11 @@
 // ----------------------------------------------------------------------------
 // 5. THÔNG TIN CHÂN TRANG / FOOTER (Comment // dòng nào để KHÔNG IN dòng đó)
 // ----------------------------------------------------------------------------
-#define ENABLE_FOOTER_DIVIDER       true    // true: Đường gạch ngang trước footer (hoặc // để tắt)
-#define ENABLE_FOOTER_TIME_INFO     true    // true: Dòng thời gian in & số đang gọi (hoặc // để tắt)
-#define ENABLE_FOOTER_WAIT_INFO     true    // true: Dòng ước tính lượt & thời gian chờ (hoặc // để tắt)
-#define TICKET_CURRENT_CALLING      0       // Số thứ tự đang được gọi hiện tại
-#define TICKET_EST_WAIT_PER_PERSON  5       // Số phút ước tính phục vụ 1 người (phút/lượt)
+//#define ENABLE_FOOTER_DIVIDER       true    // true: Đường gạch ngang trước footer (hoặc // để tắt)
+//#define ENABLE_FOOTER_TIME_INFO     true    // true: Dòng thời gian in & số đang gọi (hoặc // để tắt)
+//#define ENABLE_FOOTER_WAIT_INFO     true    // true: Dòng ước tính lượt & thời gian chờ (hoặc // để tắt)
+//#define TICKET_CURRENT_CALLING      0       // Số thứ tự đang được gọi hiện tại
+//#define TICKET_EST_WAIT_PER_PERSON  5       // Số phút ước tính phục vụ 1 người (phút/lượt)
 
 // ----------------------------------------------------------------------------
 // 6. CẤU HÌNH KHOẢNG CÁCH DÒNG & THÔNG SỐ IN
