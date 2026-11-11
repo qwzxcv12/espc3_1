@@ -311,8 +311,8 @@ void printSampleTicket(int ticket_num = -1)
     printer.init();
     printer.resetSettings();
 
-    // Thiết lập khoảng cách dòng chuẩn (38 dots giúp các hàng không bị dính vào nhau)
-    printer.setLineSpacing(38);
+    // Thiết lập khoảng cách dòng chuẩn từ ticket_config.h
+    printer.setLineSpacing(TICKET_LINE_SPACING_DOTS);
 
     // 1. IN TIÊU ĐỀ ĐƠN VỊ / CƠ QUAN
 #if (TICKET_HEADER_MODE == 1)
@@ -366,9 +366,10 @@ void printSampleTicket(int ticket_num = -1)
 
     // 6. LỜI NHẮN HƯỚNG DẪN KHÁCH HÀNG (CĂN GIỮA, GIÃN DÒNG DỄ ĐỌC)
     printer.setAlignment(ThermalPrinter::CENTER);
-    printer.setLineSpacing(36);
+    printer.setLineSpacing(TICKET_NOTICE_SPACING_DOTS);
     printFormattedText(TICKET_NOTICE_LINE1, true);
     printFormattedText(TICKET_NOTICE_LINE2, true);
+    printer.setLineSpacing(TICKET_LINE_SPACING_DOTS);
 
     // 7. ĐƯỜNG KẺ PHÂN CÁCH TRƯỚC FOOTER
     #if (PRINTER_PAPER_WIDTH_MM == 80)
@@ -631,6 +632,7 @@ static void console_command_task(void *pvParameters)
                 ESP_LOGI(TAG, "Quay     : %s", TICKET_COUNTER_NAME);
                 ESP_LOGI(TAG, "In Logo  : %s", ENABLE_PRINT_LOGO ? "BAT" : "TAT");
                 ESP_LOGI(TAG, "Tieng Viet: %s", ENABLE_VIETNAMESE_ACCENT ? "CO DAU" : "KHONG DAU");
+                ESP_LOGI(TAG, "Gian dong : %d dots", TICKET_LINE_SPACING_DOTS);
                 ESP_LOGI(TAG, "=======================================");
             } else if (isdigit((unsigned char)p[0])) {
                 int custom_num = atoi(p);

@@ -20,7 +20,7 @@
 #define ENABLE_VIETNAMESE_ACCENT    false
 
 // Cỡ chữ số thứ tự (STT): 3 hoặc 4 (vừa vặn, to rõ, không làm dài phiếu)
-#define STT_FONT_SIZE               3
+#define STT_FONT_SIZE               4
 
 // 2. NỘI DUNG VĂN BẢN (CHỈNH SỬA DỄ DÀNG BẤT KỲ LÚC NÀO TẠI ĐÂY)
 #define TICKET_HEADER_LINE1         "ỦY BAN NHÂN DÂN XÃ CHÂU THÀNH"
@@ -32,7 +32,7 @@
 #define TICKET_COUNTER_NAME         "(QUẦY 1)"
 
 // Số thứ tự (STT) bắt đầu
-#define TICKET_START_NUMBER         1002
+#define TICKET_START_NUMBER         0
 #define TICKET_MAX_NUMBER           9999
 
 // Lời nhắn / Hướng dẫn khách hàng
