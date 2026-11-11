@@ -311,25 +311,30 @@ void printSampleTicket(int ticket_num = -1)
     printer.init();
     printer.resetSettings();
 
-    // 1. IN HEADER (LOGO BÊN TRÁI + TIÊU ĐỀ BÊN PHẢI GIỐNG ẢNH MẪU)
-#if ENABLE_BITMAP_HEADER
-    // In Header Bitmap: Logo bên trái, Tiêu đề có dấu bên phải (In dạng ảnh nên dấu tiếng Việt cực nét)
+    // 1. IN TIÊU ĐỀ ĐƠN VỊ & LOGO
+#if (TICKET_HEADER_MODE == 1)
+    // Chế độ 1: In Header Bitmap (Logo bên trái + Tiêu đề bên phải dạng ảnh)
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.printBitmap(HEADER_BITMAP, HEADER_WIDTH_DOTS, HEADER_HEIGHT_DOTS);
 #else
-    // Fallback: In Logo ở giữa nếu không dùng Header Bitmap
+    // Chế độ 0: (MẶC ĐỊNH) In Văn Bản Động (Dễ đổi nội dung trong ticket_config.h, in siêu tốc)
     #if ENABLE_PRINT_LOGO
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.printBitmap(LOGO_BITMAP, LOGO_WIDTH_DOTS, LOGO_HEIGHT_DOTS);
-    printer.println();
     #endif
+
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.setBold(true);
     printFormattedText(TICKET_HEADER_LINE1, true);
     printFormattedText(TICKET_HEADER_LINE2, true);
     printer.setBold(false);
     printFormattedText(TICKET_HEADER_ADDRESS, true);
+
+    #if (PRINTER_PAPER_WIDTH_MM == 80)
+    printer.line("------------------------------------------------");
+    #else
     printer.line("--------------------------------");
+    #endif
 #endif
 
     // 2. LĨNH VỰC & QUẦY (CĂN GIỮA, IN ĐẬM)
@@ -366,8 +371,7 @@ void printSampleTicket(int ticket_num = -1)
     snprintf(wait_str, sizeof(wait_str), "Con cho %d luot - khoang %d phut nua (uoc tinh)", waiting_turns, est_minutes);
     printFormattedText(wait_str, true);
 
-    // 6. KẾT THÚC VÀ CẮT GIẤY (GỌN GÀNG, CHỈ CẦN 2 DÒNG ĐỂ ĐẾN DAO CẮT)
-    printer.println();
+    // 6. KẾT THÚC VÀ CẮT GIẤY (GỌN GÀNG, TIẾT KIỆM GIẤY)
     printer.println();
     printer.cut();
 

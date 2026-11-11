@@ -8,34 +8,37 @@
 // FILE CẤU HÌNH THÔNG TIN IN TRÊN PHIẾU (QMS TICKET CONFIGURATION)
 // ============================================================================
 
-// 1. TÙY CHỌN BỐ CỤC & HÌNH ẢNH
-// Bật chế độ in Header Bitmap: Logo nằm BÊN TRÁI + Tiêu đề BÊN PHẢI (giống hệt ảnh mẫu)
-// Chế độ này in được TIẾNG VIỆT CÓ DẤU HOÀN HẢO trên tiêu đề vì xuất theo dạng ảnh!
-#define ENABLE_BITMAP_HEADER        true
-#define ENABLE_PRINT_LOGO           true
+// 1. TÙY CHỌN BỐ CỤC & TỐI ƯU TỐC ĐỘ IN
+// - HEADER_MODE = 0: (KHUYÊN DÙNG) Chế độ in Văn Bản Động:
+//       Logo căn giữa ở đầu -> Tiêu đề cơ quan in to, ĐẬM, TRẢI RỘNG KHỔ GIẤY.
+//       Dễ dàng đổi nội dung bất cứ lúc nào dưới đây. In cực nhanh (0.2s)!
+// - HEADER_MODE = 1: Chế độ Header Bitmap (Logo bên trái + Tiêu đề bên phải).
+#define TICKET_HEADER_MODE          0
 
-// Tùy chọn Tiếng Việt cho phần text thân phiếu:
-// Vì phần lớn máy in nhiệt POS không có font tiếng Việt trong ROM (bị lỗi ký tự lạ),
+#define ENABLE_PRINT_LOGO           true    // In hình Logo (true: Bật, false: Tắt)
+#define PRINTER_PAPER_WIDTH_MM      58      // Khổ giấy: 58 (58mm) hoặc 80 (80mm)
+
+// Vì máy in nhiệt không có font tiếng Việt trong ROM (bị lỗi ký tự lạ),
 // để false sẽ tự động chuyển thành tiếng Việt không dấu chuẩn đẹp:
 #define ENABLE_VIETNAMESE_ACCENT    false
 
-// Cỡ chữ số thứ tự (STT): 3 là vừa vặn, đẹp và gọn (không quá to làm dài phiếu)
+// Cỡ chữ số thứ tự (STT): 3 hoặc 4 (vừa vặn, to rõ, không làm dài phiếu)
 #define STT_FONT_SIZE               3
 
-// 2. NỘI DUNG VĂN BẢN (DÙNG KHI CẦN THAY ĐỔI)
+// 2. NỘI DUNG VĂN BẢN (CHỈNH SỬA DỄ DÀNG BẤT KỲ LÚC NÀO TẠI ĐÂY)
 #define TICKET_HEADER_LINE1         "ỦY BAN NHÂN DÂN XÃ CHÂU THÀNH"
 #define TICKET_HEADER_LINE2         "TRUNG TÂM PHỤC VỤ HÀNH CHÍNH CÔNG"
 #define TICKET_HEADER_ADDRESS       "79 Tân Túc, xã Tân Nhựt, TP. Hồ Chí Minh"
 
-// Lĩnh vực & Quầy
+// Lĩnh vực & Quầy phục vụ
 #define TICKET_SERVICE_NAME         "LĨNH VỰC BHXH,BHYT,BHTN,BHTNLD,BNN"
 #define TICKET_COUNTER_NAME         "(QUẦY 1)"
 
-// Số bắt đầu khi khởi động kit
+// Số thứ tự (STT) bắt đầu
 #define TICKET_START_NUMBER         1002
 #define TICKET_MAX_NUMBER           9999
 
-// Lời nhắc nhở khách hàng
+// Lời nhắn / Hướng dẫn khách hàng
 #define TICKET_NOTICE_LINE1         "Quý khách vui lòng chờ đến lượt phục vụ"
 #define TICKET_NOTICE_LINE2         "theo STT trên màn hình điện tử. Xin cảm ơn"
 

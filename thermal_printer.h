@@ -34,6 +34,12 @@ private:
         uart_write_bytes(_uart_num, (const char *)&data, 1);
     }
 
+    void sendBytes(const uint8_t *data, size_t len) {
+        if (data && len > 0) {
+            uart_write_bytes(_uart_num, (const char *)data, len);
+        }
+    }
+
     void updatePrintMode() {
         uint8_t mode = 0;
         if (_currentSettings.bold) mode |= 0x08;
@@ -112,6 +118,22 @@ public:
     void setUnderline(bool enable) {
         _currentSettings.underline = enable;
         updatePrintMode();
+    }
+
+    /**
+     * @brief Bật/tắt chế độ nhân đôi chiều ngang (Double-Width) - Chữ to ngang phủ kín khổ giấy
+     */
+    void setDoubleWidth(bool enable) {
+        uint8_t cmd[] = {ESC, '!', (uint8_t)(enable ? 0x20 : 0x00)};
+        sendBytes(cmd, sizeof(cmd));
+    }
+
+    /**
+     * @brief Bật/tắt chế độ nhân đôi cả chiều ngang và chiều cao (Double-Width + Double-Height + Bold)
+     */
+    void setDoubleWidthHeight(bool enable) {
+        uint8_t cmd[] = {ESC, '!', (uint8_t)(enable ? 0x38 : 0x00)};
+        sendBytes(cmd, sizeof(cmd));
     }
     
     /**
