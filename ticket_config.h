@@ -12,6 +12,7 @@
 // Bật chế độ in Header Bitmap: Logo nằm BÊN TRÁI + Tiêu đề BÊN PHẢI (giống hệt ảnh mẫu)
 // Chế độ này in được TIẾNG VIỆT CÓ DẤU HOÀN HẢO trên tiêu đề vì xuất theo dạng ảnh!
 #define ENABLE_BITMAP_HEADER        true
+#define ENABLE_PRINT_LOGO           true
 
 // Tùy chọn Tiếng Việt cho phần text thân phiếu:
 // Vì phần lớn máy in nhiệt POS không có font tiếng Việt trong ROM (bị lỗi ký tự lạ),
