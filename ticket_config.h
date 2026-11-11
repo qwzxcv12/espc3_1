@@ -9,13 +9,10 @@
 // ============================================================================
 
 // 1. TÙY CHỌN BỐ CỤC & TỐI ƯU TỐC ĐỘ IN
-// - HEADER_MODE = 0: (KHUYÊN DÙNG) Chế độ in Văn Bản Động:
-//       Logo căn giữa ở đầu -> Tiêu đề cơ quan in to, ĐẬM, TRẢI RỘNG KHỔ GIẤY.
-//       Dễ dàng đổi nội dung bất cứ lúc nào dưới đây. In cực nhanh (0.2s)!
-// - HEADER_MODE = 1: Chế độ Header Bitmap (Logo bên trái + Tiêu đề bên phải).
+// - HEADER_MODE = 0: Chế độ in Văn Bản Động: Tiêu đề cơ quan in to, ĐẬM, TRẢI RỘNG TOÀN BỘ BỀ NGANG KHỔ GIẤY
 #define TICKET_HEADER_MODE          0
 
-#define ENABLE_PRINT_LOGO           true    // In hình Logo (true: Bật, false: Tắt)
+#define ENABLE_PRINT_LOGO           false   // false: BỎ LOGO HOÀN TOÀN, dành trọn vẹn bề ngang cho tiêu đề
 #define PRINTER_PAPER_WIDTH_MM      58      // Khổ giấy: 58 (58mm) hoặc 80 (80mm)
 
 // Vì máy in nhiệt không có font tiếng Việt trong ROM (bị lỗi ký tự lạ),
