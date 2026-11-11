@@ -48,6 +48,83 @@
 #include "header_bitmap.h"
 #include "thermal_printer.h"
 
+// Fallback an toàn phòng khi người dùng comment // bất kỳ macro nào trong ticket_config.h
+#ifndef TICKET_HEADER_LINE1
+#define TICKET_HEADER_LINE1         ""
+#endif
+#ifndef TICKET_HEADER_LINE2
+#define TICKET_HEADER_LINE2         ""
+#endif
+#ifndef TICKET_HEADER_LINE3
+#define TICKET_HEADER_LINE3         ""
+#endif
+#ifndef TICKET_HEADER_ADDRESS
+#define TICKET_HEADER_ADDRESS       ""
+#endif
+#ifndef ENABLE_HEADER_DIVIDER
+#define ENABLE_HEADER_DIVIDER       false
+#endif
+#ifndef TICKET_SERVICE_NAME
+#define TICKET_SERVICE_NAME         ""
+#endif
+#ifndef TICKET_COUNTER_NAME
+#define TICKET_COUNTER_NAME         ""
+#endif
+#ifndef TICKET_START_NUMBER
+#define TICKET_START_NUMBER         1002
+#endif
+#ifndef TICKET_MAX_NUMBER
+#define TICKET_MAX_NUMBER           9999
+#endif
+#ifndef STT_FONT_SIZE
+#define STT_FONT_SIZE               3
+#endif
+#ifndef ENABLE_STT_PADDING
+#define ENABLE_STT_PADDING          false
+#endif
+#ifndef TICKET_NOTICE_LINE1
+#define TICKET_NOTICE_LINE1         ""
+#endif
+#ifndef TICKET_NOTICE_LINE2
+#define TICKET_NOTICE_LINE2         ""
+#endif
+#ifndef TICKET_NOTICE_LINE3
+#define TICKET_NOTICE_LINE3         ""
+#endif
+#ifndef ENABLE_FOOTER_DIVIDER
+#define ENABLE_FOOTER_DIVIDER       false
+#endif
+#ifndef ENABLE_FOOTER_TIME_INFO
+#define ENABLE_FOOTER_TIME_INFO     false
+#endif
+#ifndef ENABLE_FOOTER_WAIT_INFO
+#define ENABLE_FOOTER_WAIT_INFO     false
+#endif
+#ifndef TICKET_CURRENT_CALLING
+#define TICKET_CURRENT_CALLING      0
+#endif
+#ifndef TICKET_EST_WAIT_PER_PERSON
+#define TICKET_EST_WAIT_PER_PERSON  5
+#endif
+#ifndef TICKET_LINE_SPACING_DOTS
+#define TICKET_LINE_SPACING_DOTS    38
+#endif
+#ifndef TICKET_NOTICE_SPACING_DOTS
+#define TICKET_NOTICE_SPACING_DOTS  36
+#endif
+#ifndef PRINTER_PAPER_WIDTH_MM
+#define PRINTER_PAPER_WIDTH_MM      58
+#endif
+#ifndef ENABLE_PRINT_LOGO
+#define ENABLE_PRINT_LOGO           false
+#endif
+#ifndef ENABLE_VIETNAMESE_ACCENT
+#define ENABLE_VIETNAMESE_ACCENT    false
+#endif
+#ifndef TICKET_HEADER_MODE
+#define TICKET_HEADER_MODE          0
+#endif
+
 #if __has_include("led_strip.h")
 #include "led_strip.h"
 #define HAS_LED_STRIP 1
@@ -277,11 +354,23 @@ std::string sanitize(const std::string &input)
 }
 
 /**
- * @brief In văn bản có kiểm soát Tiếng Việt có dấu / không dấu từ ticket_config.h
+ * @brief In văn bản có kiểm soát Tiếng Việt và tự động bỏ qua nếu dòng rỗng hoặc chỉ có khoảng trắng
+ * @return true nếu dòng có nội dung và đã được in; false nếu dòng rỗng/bị comment (không in gì cả)
  */
-static void printFormattedText(const char *text, bool newline = true)
+static bool printFormattedText(const char *text, bool newline = true)
 {
-    if (!text) return;
+    if (!text || text[0] == '\0') return false;
+
+    // Kiểm tra xem chuỗi có ký tự thực hay chỉ toàn khoảng trắng
+    bool hasContent = false;
+    for (const char *p = text; *p != '\0'; ++p) {
+        if (!isspace((unsigned char)*p)) {
+            hasContent = true;
+            break;
+        }
+    }
+    if (!hasContent) return false; // Dòng rỗng hoặc bị comment -> BỎ QUA HOÀN TOÀN, KHÔNG GỬI \n
+
     if (ENABLE_VIETNAMESE_ACCENT) {
         // In trực tiếp chuỗi UTF-8 (nếu máy in hỗ trợ tiếng Việt)
         if (newline) printer.println(text);
@@ -289,9 +378,11 @@ static void printFormattedText(const char *text, bool newline = true)
     } else {
         // Tự động lọc dấu sang ASCII chuẩn (nếu máy in chỉ hỗ trợ ASCII)
         std::string unaccented = removeDiacritics(text);
+        if (unaccented.empty()) return false;
         if (newline) printer.println(unaccented.c_str());
         else printer.print(unaccented.c_str());
     }
+    return true;
 }
 
 // ============================================================================
@@ -331,14 +422,17 @@ void printSampleTicket(int ticket_num = -1)
     printer.setBold(true);
     printFormattedText(TICKET_HEADER_LINE1, true);
     printFormattedText(TICKET_HEADER_LINE2, true);
+    printFormattedText(TICKET_HEADER_LINE3, true);
     printer.setBold(false);
     printFormattedText(TICKET_HEADER_ADDRESS, true);
 
     // Đường kẻ phân cách tràn khổ giấy
+    #if ENABLE_HEADER_DIVIDER
     #if (PRINTER_PAPER_WIDTH_MM == 80)
     printer.line("------------------------------------------------");
     #else
     printer.line("--------------------------------");
+    #endif
     #endif
 #endif
 
@@ -350,7 +444,9 @@ void printSampleTicket(int ticket_num = -1)
     printer.setBold(false);
 
     // 3. KHOẢNG ĐỆM TRƯỚC SỐ THỨ TỰ (Tạo không gian thở để số STT nổi bật)
+    #if ENABLE_STT_PADDING
     printer.println();
+    #endif
 
     // 4. SỐ THỨ TỰ (STT HERO ELEMENT - TO, ĐẬM, CĂN GIỮA)
     printer.setBold(true);
@@ -362,27 +458,35 @@ void printSampleTicket(int ticket_num = -1)
     printer.setBold(false);
 
     // 5. KHOẢNG ĐỆM SAU SỐ THỨ TỰ
+    #if ENABLE_STT_PADDING
     printer.println();
+    #endif
 
     // 6. LỜI NHẮN HƯỚNG DẪN KHÁCH HÀNG (CĂN GIỮA, GIÃN DÒNG DỄ ĐỌC)
     printer.setAlignment(ThermalPrinter::CENTER);
     printer.setLineSpacing(TICKET_NOTICE_SPACING_DOTS);
     printFormattedText(TICKET_NOTICE_LINE1, true);
     printFormattedText(TICKET_NOTICE_LINE2, true);
+    printFormattedText(TICKET_NOTICE_LINE3, true);
     printer.setLineSpacing(TICKET_LINE_SPACING_DOTS);
 
     // 7. ĐƯỜNG KẺ PHÂN CÁCH TRƯỚC FOOTER
+    #if ENABLE_FOOTER_DIVIDER
     #if (PRINTER_PAPER_WIDTH_MM == 80)
     printer.line("------------------------------------------------");
     #else
     printer.line("--------------------------------");
     #endif
+    #endif
 
     // 8. THÔNG TIN CHÂN TRANG (FOOTER METADATA - CÂN ĐỐI 2 BÊN)
+    #if ENABLE_FOOTER_TIME_INFO
     char time_str[64];
     snprintf(time_str, sizeof(time_str), "STT in luc: 13:10 - 11/11/2026   |   Dang goi: %d", TICKET_CURRENT_CALLING);
     printFormattedText(time_str, true);
+    #endif
 
+    #if ENABLE_FOOTER_WAIT_INFO
     int waiting_turns = ticket_num - TICKET_CURRENT_CALLING;
     if (waiting_turns < 0) waiting_turns = 1;
     int est_minutes = waiting_turns * TICKET_EST_WAIT_PER_PERSON;
@@ -390,6 +494,7 @@ void printSampleTicket(int ticket_num = -1)
     char wait_str[64];
     snprintf(wait_str, sizeof(wait_str), "Con cho: %d luot   ~   Uoc tinh: %d phut", waiting_turns, est_minutes);
     printFormattedText(wait_str, true);
+    #endif
 
     // 9. KẾT THÚC VÀ CẮT GIẤY (ĐỦ KHOẢNG CÁCH CHO DAO CẮT MÁY IN)
     printer.println();
@@ -513,36 +618,61 @@ void printTicketFromJSON(cJSON *doc)
     printer.setSize(1);
     printFormattedText(unitName.c_str(), true);
     printFormattedText(TICKET_HEADER_LINE2, true);
+    printFormattedText(TICKET_HEADER_LINE3, true);
     printer.setBold(false);
     printFormattedText(TICKET_HEADER_ADDRESS, true);
 
-    printer.line("================================");
+    #if ENABLE_HEADER_DIVIDER
+    #if (PRINTER_PAPER_WIDTH_MM == 80)
+    printer.line("------------------------------------------------");
+    #else
+    printer.line("--------------------------------");
+    #endif
+    #endif
 
     printer.setBold(true);
     printFormattedText(serviceName.c_str(), true);
     printFormattedText(TICKET_COUNTER_NAME, true);
     printer.setBold(false);
 
+    #if ENABLE_STT_PADDING
     printer.println();
+    #endif
     printer.setBold(true);
     printer.setSize(5);
     printer.println(ticketNum.c_str());
     printer.setSize(1);
     printer.setBold(false);
+    #if ENABLE_STT_PADDING
     printer.println();
+    #endif
 
     printer.setAlignment(ThermalPrinter::CENTER);
+    printer.setLineSpacing(TICKET_NOTICE_SPACING_DOTS);
     printFormattedText(TICKET_NOTICE_LINE1, true);
     printFormattedText(TICKET_NOTICE_LINE2, true);
-    printer.println();
+    printFormattedText(TICKET_NOTICE_LINE3, true);
+    printer.setLineSpacing(TICKET_LINE_SPACING_DOTS);
 
+    #if ENABLE_FOOTER_DIVIDER
+    #if (PRINTER_PAPER_WIDTH_MM == 80)
+    printer.line("------------------------------------------------");
+    #else
+    printer.line("--------------------------------");
+    #endif
+    #endif
+
+    #if ENABLE_FOOTER_TIME_INFO
     printer.setAlignment(ThermalPrinter::LEFT);
     printer.print("        So dang goi : ");
     printer.println(currentCall.c_str());
+    #endif
 
+    #if ENABLE_FOOTER_WAIT_INFO
     printer.print("        Dang cho    : ");
     printer.print(waitCount.c_str());
     printer.println(" nguoi");
+    #endif
 
     printer.print("        Ngay gio    : ");
     printer.println(dateTime.c_str());
@@ -625,11 +755,18 @@ static void console_command_task(void *pvParameters)
                 printer.cut();
             } else if (strcasecmp(p, "CONFIG") == 0) {
                 ESP_LOGI(TAG, "=== THONG TIN TRONG ticket_config.h ===");
-                ESP_LOGI(TAG, "Header 1 : %s", TICKET_HEADER_LINE1);
-                ESP_LOGI(TAG, "Header 2 : %s", TICKET_HEADER_LINE2);
-                ESP_LOGI(TAG, "Dia chi  : %s", TICKET_HEADER_ADDRESS);
-                ESP_LOGI(TAG, "Linh vuc : %s", TICKET_SERVICE_NAME);
-                ESP_LOGI(TAG, "Quay     : %s", TICKET_COUNTER_NAME);
+                ESP_LOGI(TAG, "Header 1 : %s", strlen(TICKET_HEADER_LINE1) > 0 ? TICKET_HEADER_LINE1 : "(da comment / tat)");
+                ESP_LOGI(TAG, "Header 2 : %s", strlen(TICKET_HEADER_LINE2) > 0 ? TICKET_HEADER_LINE2 : "(da comment / tat)");
+                ESP_LOGI(TAG, "Dia chi  : %s", strlen(TICKET_HEADER_ADDRESS) > 0 ? TICKET_HEADER_ADDRESS : "(da comment / tat)");
+                ESP_LOGI(TAG, "Gach dau : %s", ENABLE_HEADER_DIVIDER ? "BAT" : "TAT (commented)");
+                ESP_LOGI(TAG, "Linh vuc : %s", strlen(TICKET_SERVICE_NAME) > 0 ? TICKET_SERVICE_NAME : "(da comment / tat)");
+                ESP_LOGI(TAG, "Quay     : %s", strlen(TICKET_COUNTER_NAME) > 0 ? TICKET_COUNTER_NAME : "(da comment / tat)");
+                ESP_LOGI(TAG, "STT Pad  : %s", ENABLE_STT_PADDING ? "BAT" : "TAT (commented)");
+                ESP_LOGI(TAG, "Luu y 1  : %s", strlen(TICKET_NOTICE_LINE1) > 0 ? TICKET_NOTICE_LINE1 : "(da comment / tat)");
+                ESP_LOGI(TAG, "Luu y 2  : %s", strlen(TICKET_NOTICE_LINE2) > 0 ? TICKET_NOTICE_LINE2 : "(da comment / tat)");
+                ESP_LOGI(TAG, "Gach cuoi: %s", ENABLE_FOOTER_DIVIDER ? "BAT" : "TAT (commented)");
+                ESP_LOGI(TAG, "Footer TG: %s", ENABLE_FOOTER_TIME_INFO ? "BAT" : "TAT (commented)");
+                ESP_LOGI(TAG, "Footer Cho: %s", ENABLE_FOOTER_WAIT_INFO ? "BAT" : "TAT (commented)");
                 ESP_LOGI(TAG, "In Logo  : %s", ENABLE_PRINT_LOGO ? "BAT" : "TAT");
                 ESP_LOGI(TAG, "Tieng Viet: %s", ENABLE_VIETNAMESE_ACCENT ? "CO DAU" : "KHONG DAU");
                 ESP_LOGI(TAG, "Gian dong : %d dots", TICKET_LINE_SPACING_DOTS);
